@@ -47,7 +47,9 @@ var MAXV=3, PAGE=60;
 
 /* ---------- helpers ---------- */
 function mix(h,a){var n=parseInt(h.slice(1),16),r=n>>16,g=n>>8&255,b=n&255;function f(c){return Math.round(c+(255-c)*a)}return 'rgb('+f(r)+','+f(g)+','+f(b)+')'}
-function ls(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+/* Both mock sites share one origin (devybe.github.io), so saved data is keyed per Supabase project so a sign-in on one never leaks into the other. */
+var PK=(function(){var m=String(CFG.SUPABASE_URL||'').match(/\/\/([a-z0-9]+)\./);return m?'@'+m[1]:''})();
+function ls(k,v){k=k+PK;try{if(v===undefined)return JSON.parse(localStorage.getItem(k));if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 function el(t,a,kids){var e=document.createElement(t);for(var k in a||{}){var v=a[k];if(k==='class')e.className=v;else if(k==='text')e.textContent=v;else if(k==='html')e.innerHTML=v;else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);else if(v===true)e.setAttribute(k,'');else if(v!==false&&v!=null)e.setAttribute(k,v)}(kids||[]).forEach(function(c){if(c)e.appendChild(typeof c==='string'?document.createTextNode(c):c)});return e}
 function svgS(d,s,sw,col){return '<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'" fill="none" stroke="'+(col||'currentColor')+'" stroke-width="'+(sw||1.9)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+d+'"/></svg>'}
 function svg(d,s,sw,col){var t=document.createElement('span');t.style.display='inline-flex';t.innerHTML=svgS(d,s,sw,col);return t.firstChild}

@@ -255,6 +255,20 @@ function art(p,big){
   var a=el('span',{class:'art',style:'background:linear-gradient(160deg,'+tint(p.cat,.5)+','+tint(p.cat,.8)+')'});
   a.appendChild(el('span',{class:'bg'},[icon(p.cat,150,'#2A1B38')]));return a;
 }
+function vibePicker(p){
+  var vq=el('div',{class:'vq',role:'group','aria-label':'How does '+p.name+' feel?'});
+  var btns=[];
+  function paint(){var cur=(S.vibes[p.id]&&S.vibes[p.id].vibes)||[];btns.forEach(function(b){var on=cur.indexOf(b.dataset.v)>=0;b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-disabled',String(!on&&cur.length>=MAXV))})}
+  var timer=null;
+  VIBES.forEach(function(m){var b=el('button',{type:'button',class:'vc',style:'--c:'+m[2],'data-v':m[0],onclick:function(){
+    var cur=((S.vibes[p.id]&&S.vibes[p.id].vibes)||[]).slice(),i=cur.indexOf(m[0]);
+    if(i>=0){if(cur.length===1){toast('Keep at least one vibe. Tap another to change it.');return}cur.splice(i,1)}
+    else if(cur.length>=MAXV){toast('Pick up to 3 vibes');return}else cur.push(m[0]);
+    var note=(S.vibes[p.id]&&S.vibes[p.id].note)||'';S.vibes[p.id]={vibes:cur,note:note};ls('dv_vibes',S.vibes);paint();updHow();if(VIEW==='map')drawPins(false);
+    clearTimeout(timer);timer=setTimeout(function(){saveVibe(p,cur,note).then(function(){toast('Saved')}).catch(function(e){console.error(e);toast('Could not save')})},350)}},[el('i'),m[1]]);btns.push(b);vq.appendChild(b)});
+  paint();
+  return vq;
+}
 function drawDyn(){
   var d=document.getElementById('dyn');if(!d)return;d.innerHTML='';
   if(S.osm==='loading'&&S.places.length<40){for(var i=0;i<5;i++)d.appendChild(el('div',{class:'skel'}));d.appendChild(el('p',{class:'foot',text:'Loading real places from OpenStreetMap…'}));return}
@@ -264,17 +278,7 @@ function drawDyn(){
   var rows=el('div',{class:'rows'});
   L.slice(0,S.limit).forEach(function(p){
     var c=CAT[p.cat];
-    var vq=el('div',{class:'vq',role:'group','aria-label':'How does '+p.name+' feel?'});
-    var btns=[];
-    function paint(){var cur=(S.vibes[p.id]&&S.vibes[p.id].vibes)||[];btns.forEach(function(b){var on=cur.indexOf(b.dataset.v)>=0;b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-disabled',String(!on&&cur.length>=MAXV))})}
-    var timer=null;
-    VIBES.forEach(function(m){var b=el('button',{type:'button',class:'vc',style:'--c:'+m[2],'data-v':m[0],onclick:function(){
-      var cur=((S.vibes[p.id]&&S.vibes[p.id].vibes)||[]).slice(),i=cur.indexOf(m[0]);
-      if(i>=0){if(cur.length===1){toast('Keep at least one vibe. Tap another to change it.');return}cur.splice(i,1)}
-      else if(cur.length>=MAXV){toast('Pick up to 3 vibes');return}else cur.push(m[0]);
-      var note=(S.vibes[p.id]&&S.vibes[p.id].note)||'';S.vibes[p.id]={vibes:cur,note:note};ls('dv_vibes',S.vibes);paint();updHow();
-      clearTimeout(timer);timer=setTimeout(function(){saveVibe(p,cur,note).then(function(){toast('Saved')}).catch(function(e){console.error(e);toast('Could not save')})},350)}},[el('i'),m[1]]);btns.push(b);vq.appendChild(b)});
-    paint();
+    var vq=vibePicker(p);
     rows.appendChild(el('div',{class:'pc'},[
       el('button',{type:'button',class:'row','aria-label':'Open '+p.name,onclick:function(){openSheet(p)}},[
         el('span',{class:'dot',style:'background:'+tint(p.cat,.6)},[icon(p.cat,24)]),
@@ -296,6 +300,7 @@ function pinHtml(p,done){var c=CAT[p.cat];
 function setView(v){
   VIEW=v;var sc=document.getElementById('sc'),mw=document.getElementById('mw');
   sc.classList.toggle('hid',v==='map');mw.classList.toggle('hid',v!=='map');
+  closeMapCard();
   if(v!=='map'){drawList(true);return}
   var top=document.getElementById('mtop');top.innerHTML='';
   var inp=el('input',{type:'text',value:S.q,placeholder:'Search places or areas','aria-label':'Search places',oninput:function(e){S.q=e.target.value;drawPins(false)}});
@@ -309,15 +314,27 @@ function setView(v){
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.attribution({prefix:false,position:'bottomleft'}).addTo(map);
     L.marker([ORIGIN.lat,ORIGIN.lon],{icon:L.divIcon({className:'',iconSize:[18,18],iconAnchor:[9,9],html:'<div style="width:18px;height:18px;border-radius:50%;background:#fff;border:3.500px solid #2A1B38;box-sizing:border-box"></div>'}),interactive:false,keyboard:false}).addTo(map);
     cluster=L.markerClusterGroup?L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:44,spiderfyOnMaxZoom:true,chunkedLoading:true,iconCreateFunction:function(c){return L.divIcon({className:'',iconSize:[42,42],html:'<div class="clu">'+c.getChildCount()+'</div>'})}}):L.layerGroup();
-    cluster.addTo(map);
+    cluster.addTo(map);map.on('click',closeMapCard);
   }
   setTimeout(function(){map.invalidateSize();drawPins(true)},30);
+}
+function closeMapCard(){var c=document.getElementById('mcard');if(c)c.remove()}
+function showMapCard(p){
+  closeMapCard();logEv('view_place',p.id);var c=CAT[p.cat];
+  var card=el('div',{class:'mcard',id:'mcard',role:'dialog','aria-label':p.name},[
+    el('div',{class:'mch'},[
+      el('span',{class:'dot sm',style:'background:'+tint(p.cat,.6)},[icon(p.cat,20)]),
+      el('span',{class:'tx'},[el('b',{text:p.name}),el('span',{class:'meta',text:c.label+' · '+fmtD(p.dist)})]),
+      el('button',{type:'button',class:'mdet',text:'Details',onclick:function(){closeMapCard();openSheet(p)}}),
+      el('button',{type:'button',class:'mx','aria-label':'Close',onclick:closeMapCard,html:svgS(CLOSE,18,2.2)})]),
+    el('div',{class:'vlab',text:'How does it feel?'}),vibePicker(p)]);
+  document.getElementById('mw').appendChild(card);
 }
 function drawPins(fit){
   if(!map)return;cluster.clearLayers();var pts=[],ms=[];
   filtered().forEach(function(p){
     var m=L.marker([p.lat,p.lon],{icon:L.divIcon({className:'',iconSize:[38,46],iconAnchor:[19,45],html:pinHtml(p,!!S.vibes[p.id])}),title:p.name,alt:p.name,keyboard:true});
-    m.on('click',function(){openSheet(p)});ms.push(m);pts.push([p.lat,p.lon])});
+    m.on('click',function(){showMapCard(p)});ms.push(m);pts.push([p.lat,p.lon])});
   cluster.addLayers?cluster.addLayers(ms):ms.forEach(function(m){cluster.addLayer(m)});
   if(fit&&pts.length&&S.cat!=='all')map.fitBounds(pts,{padding:[60,60],maxZoom:16});
 }

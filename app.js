@@ -83,7 +83,7 @@ function classify(t){for(var i=0;i<CATS.length;i++)if(matchCat(t,CATS[i].id))ret
 var BAD=/\b(real\s*estate|estate\s*agent|property|realtor|brokerage|law\s*(firm|office)|accounting|recruitment|logistics|corporate\s*office)\b/i;
 function dispName(t){var n=t['name:en']||t.int_name||t.name||'';n=String(n).trim();return /[A-Za-z]{2}/.test(n)&&n.length<90?n:''}
 function describe(name,cat,t){
-  var s=t['description:en']||t.description;if(s&&/[A-Za-z]{12}/.test(s))return String(s).slice(0,400);
+  var s=t['description:en']||t.description;if(s&&/[A-Za-z]{4}/.test(s))return String(s).slice(0,400);
   var cu=t.cuisine?String(t.cuisine).replace(/;/g,', ').replace(/_/g,' '):'';
   var m={restaurant:name+' is a restaurant near '+ORIGIN.label+(cu?', serving '+cu+' food':'')+'.',cafe:name+' is a café for a relaxed break'+(cu?' with '+cu+' options':'')+'.',
    shopping:name+' is a shopping stop worth a look if you like browsing.',market:name+' is a local market for browsing, snacking and small finds.',
@@ -105,13 +105,13 @@ function osmPlace(e){
   if(/^(yes|residential|apartments|office)$/i.test(t.building||'')&&!t.amenity&&!t.shop&&!t.tourism&&!t.leisure&&!t.historic)return null;
   if(['alcohol','tobacco','cannabis','e-cigarette','lottery','weapons','adult'].indexOf(String(t.shop||'').toLowerCase())>=0)return null;
   var d=dist(ORIGIN.lat,ORIGIN.lon,lat,lon),kind=cap(String(t.cuisine&&cat==='restaurant'?t.cuisine.split(';')[0]:(t.shop||t.tourism||t.leisure||t.amenity||t.historic||cat)).replace(/_/g,' '));
-  var addr=[t['addr:housenumber'],t['addr:street'],t['addr:subdistrict']||t['addr:suburb']||t['addr:district']].filter(Boolean).join(', ');
+  var team=t['x:src']==='team',addr=t['addr:full']||[t['addr:housenumber'],t['addr:street'],t['addr:subdistrict']||t['addr:suburb']||t['addr:district']].filter(Boolean).join(', ');
   var details=[t.opening_hours,t.website||t['contact:website'],t.phone||t['contact:phone'],addr,t.description,t.cuisine].filter(Boolean).length;
-  return {id:'osm-'+e.type+'-'+e.id,osm:true,name:name,cat:cat,kind:kind,lat:lat,lon:lon,dist:d,addr:addr,
+  return {id:(team?'team-':'osm-'+e.type+'-')+e.id,osm:!team,name:name,cat:cat,kind:kind,lat:lat,lon:lon,dist:d,addr:addr,
     desc:describe(name,cat,t),hl:highlights(cat,kind,t,d),hours:t.opening_hours||'',web:safeUrl(t.website||t['contact:website']||''),phone:t.phone||t['contact:phone']||'',
-    cost:t.fee==='no'?'Free':t.fee==='yes'?'Entry fee':'Check current price',indoor:CAT[cat].indoor,dur:CAT[cat].dur,conf:details>=4?'high':details>=2?'medium':'low',
+    cost:t['x:price']||(t.fee==='no'?'Free':t.fee==='yes'?'Entry fee':'Check current price'),team:team,note:t['x:note']||'',th:t['name:th']||'',indoor:CAT[cat].indoor,dur:CAT[cat].dur,conf:team?'team':details>=4?'high':details>=2?'medium':'low',
     wiki:t.wikipedia||'',wd:t.wikidata||'',commons:t.wikimedia_commons||'',img:[t.image,t['image:0'],t['contact:image']].map(safeUrl).filter(Boolean)[0]||'',
-    url:'https://www.openstreetmap.org/'+e.type+'/'+e.id};
+    url:team?'':'https://www.openstreetmap.org/'+e.type+'/'+e.id};
 }
 function samplePlace(s){
   var m={Cafés:'cafe',Parks:'park',Bookshops:'books',Museums:'museum',Galleries:'museum',Markets:'market','Street food':'restaurant',Restaurants:'restaurant',Sport:'sport',Activities:'activity',Shopping:'shopping',Heritage:'heritage'};
@@ -228,20 +228,25 @@ function chipRow(onPick){
 }
 
 /* ---------- Discover list ---------- */
+function howCard(){
+  var done=Object.keys(S.vibes).length;
+  var goal=10,pct=Math.min(100,done*100/goal);
+  var mini='<svg viewBox="12 4 96 108" width="26" height="29" aria-hidden="true" style="overflow:visible;flex:none"><defs><linearGradient id="fg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7FC3EE"/><stop offset="1" stop-color="#F29BB5"/></linearGradient></defs><circle cx="60" cy="86" r="26" fill="url(#fg2)"/><g fill="none" stroke="#2A1B38" stroke-width="7" stroke-linecap="round"><ellipse cx="47" cy="74" rx="17" ry="34" transform="rotate(9 47 74)"/><ellipse cx="73" cy="74" rx="17" ry="34" transform="rotate(-9 73 74)"/><circle cx="60" cy="30" r="9" fill="#fff"/></g></svg>';
+  return el('div',{class:'how'},[
+    el('div',{class:'howt'},[el('span',{class:'hi',html:mini}),el('div',{class:'hx'},[el('b',{text:done>=goal?'Great work, thank you!':'Tell us how places feel'}),el('small',{text:done>=goal?'Keep going if you like. More answers help.':done<3?'Rate about 10 places, any you like':'Rate about 10 places, any you like'})]),el('span',{class:'hn'},[el('b',{text:String(Math.min(done,goal))}),'/'+goal])]),
+    el('div',{class:'bar'},[el('i',{style:'width:'+pct+'%'})]),
+    done<3?el('ol',{class:'steps'},[el('li',{text:'Find a place'}),el('li',{text:'Tap its vibes'}),el('li',{text:'Saves itself'})]):null]);
+}
+function updHow(){var b=document.getElementById('howbox');if(b){b.innerHTML='';b.appendChild(howCard())}}
 function drawList(keep){
   var sc=document.getElementById('sc'),top=keep?sc.scrollTop:0;sc.innerHTML='';
   var done=Object.keys(S.vibes).length;
   sc.appendChild(el('div',{class:'head'},[el('div',{},[el('div',{class:'eyebrow',text:'Hi '+S.user.nick+' · near '+ORIGIN.label}),el('h1',{text:'Discover'})]),
     el('button',{type:'button',class:'mapbtn','aria-label':'Show places on a map',onclick:function(){setView('map')}},[svg('M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',18),'Map'])]));
-  var goal=10,pct=Math.min(100,done*100/goal);
-  var mini='<svg viewBox="12 4 96 108" width="26" height="29" aria-hidden="true" style="overflow:visible;flex:none"><defs><linearGradient id="fg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7FC3EE"/><stop offset="1" stop-color="#F29BB5"/></linearGradient></defs><circle cx="60" cy="86" r="26" fill="url(#fg2)"/><g fill="none" stroke="#2A1B38" stroke-width="7" stroke-linecap="round"><ellipse cx="47" cy="74" rx="17" ry="34" transform="rotate(9 47 74)"/><ellipse cx="73" cy="74" rx="17" ry="34" transform="rotate(-9 73 74)"/><circle cx="60" cy="30" r="9" fill="#fff"/></g></svg>';
-  sc.appendChild(el('div',{class:'how'},[
-    el('div',{class:'howt'},[el('span',{class:'hi',html:mini}),el('div',{class:'hx'},[el('b',{text:done>=goal?'Great work, thank you!':'Tell us how places feel'}),el('small',{text:done>=goal?'Keep going if you like. More answers help.':done<3?'Rate about 10 places, any you like':'Rate about 10 places, any you like'})]),el('span',{class:'hn'},[el('b',{text:String(Math.min(done,goal))}),'/'+goal])]),
-    el('div',{class:'bar'},[el('i',{style:'width:'+pct+'%'})]),
-    done<3?el('ol',{class:'steps'},[el('li',{text:'Tap a place'}),el('li',{text:'Pick vibes'}),el('li',{text:'Save'})]):null]));
   var inp=el('input',{type:'text',value:S.q,placeholder:'Search places or areas','aria-label':'Search places',oninput:function(e){S.q=e.target.value;S.limit=PAGE;drawDyn()}});
   sc.appendChild(el('div',{class:'search'},[svg('M11 17a6 6 0 100-12 6 6 0 000 12zM16 16l4 4',20),inp]));
   sc.appendChild(chipRow(function(id){S.cat=id;S.limit=PAGE;drawList(true)}));
+  sc.appendChild(el('div',{id:'howbox'},[howCard()]));
   sc.appendChild(el('div',{id:'dyn'}));drawDyn();sc.scrollTop=top;
 }
 function art(p,big){
@@ -256,14 +261,27 @@ function drawDyn(){
   d.appendChild(el('div',{class:'sec'},[el('h2',{text:S.cat==='all'?'Places near you':CAT[S.cat].label}),el('span',{text:L.length+' places · closest first'})]));
   var rows=el('div',{class:'rows'});
   L.slice(0,S.limit).forEach(function(p){
-    var v=S.vibes[p.id],c=CAT[p.cat];
-    var right=v?el('span',{class:'done','aria-label':v.vibes.length+' vibes saved'},[el('span',{class:'ok',text:'Rated'})].concat(v.vibes.map(function(x){var vv=VIBES.filter(function(q){return q[0]===x})[0];return el('i',{style:'background:'+vv[2]})}))):el('span',{class:'rate'},['Rate']);
-    rows.appendChild(el('button',{type:'button',class:'row','aria-label':'Open '+p.name,onclick:function(){openSheet(p)}},[
-      el('span',{class:'dot',style:'background:'+tint(p.cat,.6)},[icon(p.cat,24)]),
-      el('span',{class:'tx'},[el('b',{text:p.name}),el('span',{class:'meta',text:c.label+' · '+fmtD(p.dist)+(p.hours?' · hours listed':'')})]),right]))});
+    var c=CAT[p.cat];
+    var vq=el('div',{class:'vq',role:'group','aria-label':'How does '+p.name+' feel?'});
+    var btns=[];
+    function paint(){var cur=(S.vibes[p.id]&&S.vibes[p.id].vibes)||[];btns.forEach(function(b){var on=cur.indexOf(b.dataset.v)>=0;b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-disabled',String(!on&&cur.length>=MAXV))})}
+    var timer=null;
+    VIBES.forEach(function(m){var b=el('button',{type:'button',class:'vc',style:'--c:'+m[2],'data-v':m[0],onclick:function(){
+      var cur=((S.vibes[p.id]&&S.vibes[p.id].vibes)||[]).slice(),i=cur.indexOf(m[0]);
+      if(i>=0){if(cur.length===1){toast('Keep at least one vibe. Tap another to change it.');return}cur.splice(i,1)}
+      else if(cur.length>=MAXV){toast('Pick up to 3 vibes');return}else cur.push(m[0]);
+      var note=(S.vibes[p.id]&&S.vibes[p.id].note)||'';S.vibes[p.id]={vibes:cur,note:note};ls('dv_vibes',S.vibes);paint();updHow();
+      clearTimeout(timer);timer=setTimeout(function(){saveVibe(p,cur,note).then(function(){toast('Saved')}).catch(function(e){console.error(e);toast('Could not save')})},350)}},[el('i'),m[1]]);btns.push(b);vq.appendChild(b)});
+    paint();
+    rows.appendChild(el('div',{class:'pc'},[
+      el('button',{type:'button',class:'row','aria-label':'Open '+p.name,onclick:function(){openSheet(p)}},[
+        el('span',{class:'dot',style:'background:'+tint(p.cat,.6)},[icon(p.cat,24)]),
+        el('span',{class:'tx'},[el('b',{text:p.name}),el('span',{class:'meta',text:c.label+' · '+fmtD(p.dist)+(p.hours?' · hours listed':'')})]),
+        el('span',{class:'chev',html:svgS(CHEV,18,2,'#8A7F95')})]),
+      el('div',{class:'vlab',text:'How does it feel?'}),vq]))});
   d.appendChild(rows);
   if(L.length>S.limit)d.appendChild(el('div',{class:'empty',style:'margin-top:16px'},[el('button',{type:'button',style:'margin:0',text:'Show '+Math.min(PAGE,L.length-S.limit)+' more',onclick:function(){S.limit+=PAGE;drawDyn()}})]));
-  var note='Place details from OpenStreetMap; a few opening hours added from public information. Hours can change, so check before you go.';
+  var note='Place details from OpenStreetMap and the DeVybe team’s checks of public listings. Hours can change, so check before you go.';
   var ft=el('div',{class:'foot'},[note+' © ',el('a',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'OpenStreetMap contributors'})]);
   if(S.osm==='fail')ft.appendChild(el('div',{},[el('button',{type:'button',class:'lnk',style:'text-align:left;width:auto;padding:0',text:'Try again',onclick:function(){ls('dv_osm_v4',null);loadPlaces()}})]));
   d.appendChild(ft);
@@ -315,14 +333,15 @@ function openSheet(p){
   hero.appendChild(el('div',{class:'txt'},[el('span',{class:'tag'},[icon(p.cat,14),c.label]),el('h1',{text:p.name}),el('div',{class:'loc',text:(p.addr?p.addr+' · ':'')+fmtD(p.dist)+' from '+ORIGIN.label})]));
   var st=isOpenNow(p.hours);
   var info=el('div',{class:'info'},[
-    el('div',{class:'ii w'},[el('div',{class:'il',text:'Hours'}),el('div',{class:'iv',text:p.hours||'Not listed. Check before you go.'}),st==null?null:el('span',{class:'open '+(st?'y':'n'),text:st?'Likely open now':'Likely closed now'})]),
+    el('div',{class:'ii w'},[el('div',{class:'il',text:'Hours'}),el('div',{class:'iv',text:p.hours?p.hours+(p.team?' (unconfirmed)':''):'Not listed. Check before you go.'}),st==null?null:el('span',{class:'open '+(st?'y':'n'),text:st?'Likely open now':'Likely closed now'})]),
+    p.note?el('div',{class:'ii w'},[el('div',{class:'il',text:'Good to know'}),el('div',{class:'iv',text:p.note})]):null,
     el('div',{class:'ii'},[el('div',{class:'il',text:'Budget'}),el('div',{class:'iv',text:p.cost})]),
     el('div',{class:'ii'},[el('div',{class:'il',text:'Typical stop'}),el('div',{class:'iv',text:p.dur})]),
     el('div',{class:'ii'},[el('div',{class:'il',text:'Setting'}),el('div',{class:'iv',text:p.indoor?'Mostly indoor':'Mostly outdoor'})]),
     el('div',{class:'ii'},[el('div',{class:'il',text:'Distance'}),el('div',{class:'iv',text:fmtD(p.dist)+' from '+ORIGIN.label})]),
     p.addr?el('div',{class:'ii w'},[el('div',{class:'il',text:'Address'}),el('div',{class:'iv',text:p.addr})]):null,
     p.phone?el('div',{class:'ii w'},[el('div',{class:'il',text:'Phone'}),el('div',{class:'iv',text:p.phone})]):null]);
-  var trustTxt={high:['Well described','Hours, contact details and an address are mapped for this place.'],medium:['Some details mapped','A few details are mapped. Check hours before you go.'],low:['Basic details only','Only the basics are mapped. Check hours and details before you travel.']}[p.conf];
+  var trustTxt={team:['Checked from public listings','The DeVybe team checked this place from public listings. Hours and prices may have changed, so confirm before you go.'],high:['Well described','Hours, contact details and an address are mapped for this place.'],medium:['Some details mapped','A few details are mapped. Check hours before you go.'],low:['Basic details only','Only the basics are mapped. Check hours and details before you travel.']}[p.conf];
   var links=el('div',{class:'links'});
   if(p.url)links.appendChild(el('a',{href:p.url,target:'_blank',rel:'noopener',text:'OpenStreetMap ↗'}));
   if(p.web)links.appendChild(el('a',{href:p.web,target:'_blank',rel:'noopener',text:'Official website ↗'}));
@@ -341,7 +360,7 @@ function openSheet(p){
   var note=el('textarea',{class:'in',maxlength:'280',placeholder:'Anything else? In your own words (optional)','aria-label':'Your own words',oninput:function(e){S.note=e.target.value}});note.value=S.note;
   var body=el('div',{class:'sbody'},[hero,el('div',{class:'pad'},[
     el('div',{class:'story'},[el('h3',{text:'What makes this place worth a stop'}),el('p',{text:p.desc}),el('div',{class:'pills'},p.hl.map(function(x){return el('span',{text:x})}))]),
-    info,el('div',{class:'trust'},[el('b',{text:'✓ '+trustTxt[0]}),el('div',{text:(p.osm?'Source: OpenStreetMap. ':'Sample entry. ')+trustTxt[1]})]),
+    info,el('div',{class:'trust'},[el('b',{text:'✓ '+trustTxt[0]}),el('div',{text:(p.team?'':p.osm?'Source: OpenStreetMap. ':'Sample entry. ')+trustTxt[1]})]),
     links]),
     el('div',{class:'q'},[el('h2',{text:'What is the vibe here?'}),el('p',{text:'Pick up to three feelings that fit this place for you. There is no right answer.'}),vbox,note])]);
   sh.appendChild(body);sh.appendChild(el('div',{class:'sfoot'},[cnt,sv]));sync();

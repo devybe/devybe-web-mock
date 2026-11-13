@@ -117,6 +117,17 @@ h1,h2,h3,.serif{font-family:'Fraunces',serif;font-weight:600;margin:0}
 .dot{width:54px;height:54px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
 .row .tx{flex:1;min-width:0}.row b{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;margin-top:3px}
+.pc{border-bottom:1px solid #F1EEF4;padding:0 0 16px}.pc .row{border-bottom:0;min-height:76px}
+.chev{flex:none;display:flex;opacity:.7}
+.vlab{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.vq{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.vc{height:40px;min-width:0;border-radius:99px;border:1.5px solid var(--line);background:#fff;padding:0 8px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:13.5px;font-weight:600;transition:background .15s,border-color .15s,transform .1s}
+.vc i{width:12px;height:12px;border-radius:50%;background:var(--c);opacity:.55;flex:none}
+.vc:active{transform:scale(.97)}
+.vc[aria-pressed=true]{border-color:var(--ink);background:color-mix(in srgb,var(--c) 22%,#fff);box-shadow:0 0 0 1px var(--ink) inset}
+.vc[aria-pressed=true] i{opacity:1;border:2px solid var(--ink)}
+.vc[aria-disabled=true]{opacity:.4}
+#howbox .how{margin-top:18px}
 .done{flex:none;display:flex;gap:4px;align-items:center}
 .done i{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink)}
 .tick{flex:none;width:28px;height:28px;border-radius:50%;background:#EAF7C8;display:flex;align-items:center;justify-content:center}
